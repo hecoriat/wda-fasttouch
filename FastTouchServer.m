@@ -14,6 +14,12 @@
 
 #import <UIKit/UIKit.h>
 #import <objc/message.h>
+
+// WDA builds with -Werror; casting objc_msgSend to a typed function pointer is the
+// standard way to call it, so silence the strict cast warning for this code.
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wcast-function-type-strict"
+#pragma clang diagnostic ignored "-Wcast-function-type"
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
