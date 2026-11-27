@@ -18,13 +18,22 @@ jobs:
       - name: Build runner (unsigned)
         working-directory: wda
         run: |
+          xcodebuild -version
+          set +e
           xcodebuild build-for-testing \
             -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner \
             -destination generic/platform=iOS -configuration Debug \
             -derivedDataPath ../build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            | tail -40
-          test "${PIPESTATUS[0]}" -eq 0
+            > ../xcodebuild.log 2>&1
+          status=$?
+          tail -60 ../xcodebuild.log
+          if [ $status -ne 0 ]; then
+            # surface the errors as annotations (readable without signing in)
+            grep -E "error:|fatal|Error|BUILD FAILED|xcodebuild: " ../xcodebuild.log | head -20 \
+              | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+            exit $status
+          fi
       - name: Package IPA
         run: |
           APP="build/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app"
