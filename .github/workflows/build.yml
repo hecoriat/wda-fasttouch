@@ -1,0 +1,39 @@
+name: build-wda-fasttouch
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  WDA_TAG: v16.15.3
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get WebDriverAgent source
+        run: git clone --depth 1 --branch "$WDA_TAG" https://github.com/appium/WebDriverAgent.git wda
+      - name: Add FastTouch server
+        run: cat FastTouchServer.m >> wda/WebDriverAgentRunner/UITestingUITests.m
+      - name: Build runner (unsigned)
+        working-directory: wda
+        run: |
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj -scheme WebDriverAgentRunner \
+            -destination generic/platform=iOS -configuration Debug \
+            -derivedDataPath ../build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tail -40
+          test "${PIPESTATUS[0]}" -eq 0
+      - name: Package IPA
+        run: |
+          APP="build/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app"
+          ls "$APP" "$APP/PlugIns"
+          # Sideloadly cannot sign debug-symbol bundles
+          find "$APP" -name "*.dSYM" -prune -exec rm -rf {} +
+          mkdir -p out/Payload && cp -R "$APP" out/Payload/
+          cd out && zip -qr WDA-FastTouch.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WDA-FastTouch-ipa
+          path: out/WDA-FastTouch.ipa
